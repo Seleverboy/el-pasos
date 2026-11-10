@@ -3227,10 +3227,9 @@ end
 -- Sliding UI section
 Section(P, "Car Teleport (Exploit)", 20)
 
-do -- <--- THIS FIXES THE 200 LIMIT ERROR
+task.spawn(function() -- <--- THIS FIXES THE 200 LIMIT ERROR
     -- Height: status(34) + auto-spawn(34) + farm-loop(34) + grid(354) + cancel(34) + 4 gaps*6 + buffer
     local ctpContentHeight = 34 + 34 + 34 + 354 + 34 + (4 * 6) + 20
-
     local ctpContainer = Instance.new("Frame", P)
     ctpContainer.Size = UDim2.new(1, -6, 0, 0)
     ctpContainer.BackgroundTransparency = 1
@@ -3352,7 +3351,7 @@ do -- <--- THIS FIXES THE 200 LIMIT ERROR
     end)
 
     _G.EP_CarTP = { snapLoops = CTP_snapLoops, mapGui = CTP_mapGui, pumpkinFarm = PumpkinFarm }
-end -- <--- END OF THE DO BLOCK
+end) -- <--- END OF THE FUNCTION
 
 --============== MOVE TAB ==============
 currentWidgetTab = "Move"
@@ -3416,7 +3415,7 @@ local KeybindOrder = {"ToggleGUI","Aim","AutoEquip","ESP","Godmode","Minimize","
 --=================================================================
 currentWidgetTab = "Cheats"
 P = Tabs.Cheats.page
-do
+task.spawn(function()
 -- 1. First, we define the logic so the buttons can use it
 local function GetCar()
     local char = LP.Character; if not char then return nil end
@@ -3677,14 +3676,13 @@ Btn(P, 72, "✨ Restore Map", function()
     RestoreMap()
     showToast("Restoring map in chunks...", "success")
 end, Color3.fromRGB(30, 80, 40))
-end
-
+end)
 --=================================================================
 --  MISC TAB (now LAST tab)
 --=================================================================
 currentWidgetTab = "Misc"
 P = Tabs.Misc.page
-do
+task.spawn(function()
 
 Section(P, "Appearance", 1)
 local themeCard = Card(P, 2, 70)
@@ -3919,7 +3917,7 @@ Btn(P, 51, "Unload Script", function()
     Gui:Destroy()
     _G.EP_Loaded = false
 end, Color3.fromRGB(60,24,24))
-end -- ADD THIS
+end) -- <--- ADD THIS
 
 --=================================================================
 --  SEARCH FUNCTION
