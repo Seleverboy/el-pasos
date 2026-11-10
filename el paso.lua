@@ -3227,130 +3227,132 @@ end
 -- Sliding UI section
 Section(P, "Car Teleport (Exploit)", 20)
 
--- Height: status(34) + auto-spawn(34) + farm-loop(34) + grid(354) + cancel(34) + 4 gaps*6 + buffer
-local ctpContentHeight = 34 + 34 + 34 + 354 + 34 + (4 * 6) + 20
+do -- <--- THIS FIXES THE 200 LIMIT ERROR
+    -- Height: status(34) + auto-spawn(34) + farm-loop(34) + grid(354) + cancel(34) + 4 gaps*6 + buffer
+    local ctpContentHeight = 34 + 34 + 34 + 354 + 34 + (4 * 6) + 20
 
-local ctpContainer = Instance.new("Frame", P)
-ctpContainer.Size = UDim2.new(1, -6, 0, 0)
-ctpContainer.BackgroundTransparency = 1
-ctpContainer.ClipsDescendants = true
-ctpContainer.LayoutOrder = 22
+    local ctpContainer = Instance.new("Frame", P)
+    ctpContainer.Size = UDim2.new(1, -6, 0, 0)
+    ctpContainer.BackgroundTransparency = 1
+    ctpContainer.ClipsDescendants = true
+    ctpContainer.LayoutOrder = 22
 
-local ctpLayout = Instance.new("UIListLayout", ctpContainer)
-ctpLayout.Padding = UDim.new(0, 6)
-ctpLayout.SortOrder = Enum.SortOrder.LayoutOrder
+    local ctpLayout = Instance.new("UIListLayout", ctpContainer)
+    ctpLayout.Padding = UDim.new(0, 6)
+    ctpLayout.SortOrder = Enum.SortOrder.LayoutOrder
 
--- Status card
-local ctpStatusCard = Card(ctpContainer, 1, 34)
-local ctpStatus = Instance.new("TextLabel", ctpStatusCard)
-ctpStatus.Size = UDim2.new(1, -20, 1, 0); ctpStatus.Position = UDim2.fromOffset(12, 0)
-ctpStatus.BackgroundTransparency = 1
-ctpStatus.Font = Enum.Font.GothamMedium; ctpStatus.TextSize = 11
-ctpStatus.TextXAlignment = Enum.TextXAlignment.Left
-ctpStatus.Text = " Not in a car"
-ctpStatus.TextColor3 = Theme.Dim
-onTheme(function() ctpStatus.TextColor3 = Theme.Dim end)
+    -- Status card
+    local ctpStatusCard = Card(ctpContainer, 1, 34)
+    local ctpStatus = Instance.new("TextLabel", ctpStatusCard)
+    ctpStatus.Size = UDim2.new(1, -20, 1, 0); ctpStatus.Position = UDim2.fromOffset(12, 0)
+    ctpStatus.BackgroundTransparency = 1
+    ctpStatus.Font = Enum.Font.GothamMedium; ctpStatus.TextSize = 11
+    ctpStatus.TextXAlignment = Enum.TextXAlignment.Left
+    ctpStatus.Text = " Not in a car"
+    ctpStatus.TextColor3 = Theme.Dim
+    onTheme(function() ctpStatus.TextColor3 = Theme.Dim end)
 
--- Auto-spawn toggle
-Toggle(ctpContainer, 2, "Auto-spawn car on teleport", function() return State.CarTPAutoSpawn end, function(v)
-    State.CarTPAutoSpawn = v
-    showToast("Auto-spawn " .. (v and "ON" or "OFF"), v and "success" or "info")
-end)
-
--- Auto Pumpkin Loop
-Toggle(ctpContainer, 6, "Auto Pumpkin Farm Loop", function() return PumpkinFarm.Active end, function(v)
-    if v then PF_start() else PF_stop() end
-end)
-
--- 2-column waypoint grid
-local ctpGridFrame = Instance.new("Frame", ctpContainer)
-ctpGridFrame.Size = UDim2.new(1, 0, 0, 354)
-ctpGridFrame.BackgroundTransparency = 1
-ctpGridFrame.LayoutOrder = 4
-
-local ctpGrid = Instance.new("UIGridLayout", ctpGridFrame)
-ctpGrid.CellSize = UDim2.new(0.5, -3, 0, 34)
-ctpGrid.CellPadding = UDim2.new(0, 6, 0, 6)
-ctpGrid.SortOrder = Enum.SortOrder.LayoutOrder
-
-local function ctpGridBtn(parent, order, label, cb)
-    local b = Instance.new("TextButton", parent)
-    b.BorderSizePixel = 0
-    b.Text = label
-    b.Font = Enum.Font.GothamMedium
-    b.TextSize = 10
-    b.AutoButtonColor = false
-    b.LayoutOrder = order
-    b.TextTruncate = Enum.TextTruncate.AtEnd
-    Instance.new("UICorner", b).CornerRadius = UDim.new(0, 7)
-    local s = Instance.new("UIStroke", b); s.Thickness = 1; s.Transparency = 0.35
-    b.BackgroundColor3 = Theme.Card; b.TextColor3 = Theme.Text; s.Color = Theme.Border
-    onTheme(function() b.BackgroundColor3 = Theme.Card; b.TextColor3 = Theme.Text; s.Color = Theme.Border end)
-    b.MouseEnter:Connect(function() TweenService:Create(b, TweenInfo.new(0.12), {BackgroundColor3 = Theme.CardHover}):Play() end)
-    b.MouseLeave:Connect(function() TweenService:Create(b, TweenInfo.new(0.12), {BackgroundColor3 = Theme.Card}):Play() end)
-    b.MouseButton1Click:Connect(function()
-        local ok, err = pcall(cb)
-        if not ok then warn("[EP] " .. tostring(err)); showToast("Error: "..tostring(err), "error") end
+    -- Auto-spawn toggle
+    Toggle(ctpContainer, 2, "Auto-spawn car on teleport", function() return State.CarTPAutoSpawn end, function(v)
+        State.CarTPAutoSpawn = v
+        showToast("Auto-spawn " .. (v and "ON" or "OFF"), v and "success" or "info")
     end)
-    table.insert(searchIndex, {tab=currentWidgetTab, label=label, card=b})
-    return b
-end
 
-for i, loc in ipairs(CTP_LOCATIONS) do
-    ctpGridBtn(ctpGridFrame, i, " " .. loc.Name, function()
-        local ok, err = CTP_tpToName(loc.Name)
-        if ok then showToast("Car TP → " .. loc.Name, "success")
-        else showToast(tostring(err), "warn") end
+    -- Auto Pumpkin Loop
+    Toggle(ctpContainer, 6, "Auto Pumpkin Farm Loop", function() return PumpkinFarm.Active end, function(v)
+        if v then PF_start() else PF_stop() end
     end)
-end
 
--- Stop Car (panic button)
-Btn(ctpContainer, 5, "Stop Car (kill momentum)", function()
-    local car = getCarAndSeat()
-    if car then
-        for _, p in ipairs(car:GetDescendants()) do
-            if p:IsA("BasePart") then
-                p.AssemblyLinearVelocity = Vector3.zero
-                p.AssemblyAngularVelocity = Vector3.zero
-            end
-        end
-        showToast("Car momentum stopped", "success")
-    else
-        showToast("Not in a car", "warn")
+    -- 2-column waypoint grid
+    local ctpGridFrame = Instance.new("Frame", ctpContainer)
+    ctpGridFrame.Size = UDim2.new(1, 0, 0, 354)
+    ctpGridFrame.BackgroundTransparency = 1
+    ctpGridFrame.LayoutOrder = 4
+
+    local ctpGrid = Instance.new("UIGridLayout", ctpGridFrame)
+    ctpGrid.CellSize = UDim2.new(0.5, -3, 0, 34)
+    ctpGrid.CellPadding = UDim2.new(0, 6, 0, 6)
+    ctpGrid.SortOrder = Enum.SortOrder.LayoutOrder
+
+    local function ctpGridBtn(parent, order, label, cb)
+        local b = Instance.new("TextButton", parent)
+        b.BorderSizePixel = 0
+        b.Text = label
+        b.Font = Enum.Font.GothamMedium
+        b.TextSize = 10
+        b.AutoButtonColor = false
+        b.LayoutOrder = order
+        b.TextTruncate = Enum.TextTruncate.AtEnd
+        Instance.new("UICorner", b).CornerRadius = UDim.new(0, 7)
+        local s = Instance.new("UIStroke", b); s.Thickness = 1; s.Transparency = 0.35
+        b.BackgroundColor3 = Theme.Card; b.TextColor3 = Theme.Text; s.Color = Theme.Border
+        onTheme(function() b.BackgroundColor3 = Theme.Card; b.TextColor3 = Theme.Text; s.Color = Theme.Border end)
+        b.MouseEnter:Connect(function() TweenService:Create(b, TweenInfo.new(0.12), {BackgroundColor3 = Theme.CardHover}):Play() end)
+        b.MouseLeave:Connect(function() TweenService:Create(b, TweenInfo.new(0.12), {BackgroundColor3 = Theme.Card}):Play() end)
+        b.MouseButton1Click:Connect(function()
+            local ok, err = pcall(cb)
+            if not ok then warn("[EP] " .. tostring(err)); showToast("Error: "..tostring(err), "error") end
+        end)
+        table.insert(searchIndex, {tab=currentWidgetTab, label=label, card=b})
+        return b
     end
-end, Color3.fromRGB(60, 24, 24))
 
--- Sliding toggle button
-local ctpIsOpen = false
-local ctpToggleBtn
-ctpToggleBtn = Btn(P, 21, "Open Car Teleport", function()
-    ctpIsOpen = not ctpIsOpen
-    ctpToggleBtn.Text = ctpIsOpen and "Close Car Teleport" or "Open Car Teleport"
-    local targetSize = ctpIsOpen and UDim2.new(1, -6, 0, ctpContentHeight) or UDim2.new(1, -6, 0, 0)
-    TweenService:Create(ctpContainer, TweenInfo.new(0.35, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {Size = targetSize}):Play()
-end, Color3.fromRGB(40, 90, 180))
-
--- Live status loop
-task.spawn(function()
-    while not _G.EP_Unloaded do
-        task.wait(0.5)
-        pcall(function()
-            if not ctpStatus.Parent then return end
-            local car = getCarAndSeat()
-            if car then
-                ctpStatus.Text = " In car (" .. (car:GetAttribute("Owner") or "?") .. ") — ready"
-                ctpStatus.TextColor3 = Color3.fromRGB(130, 220, 150)
-            else
-                ctpStatus.Text = if State.CarTPAutoSpawn
-                    then " Not in a car — auto-spawn on TP"
-                    else " Not in a car — auto-spawn OFF"
-                ctpStatus.TextColor3 = Color3.fromRGB(255, 200, 100)
-            end
+    for i, loc in ipairs(CTP_LOCATIONS) do
+        ctpGridBtn(ctpGridFrame, i, " " .. loc.Name, function()
+            local ok, err = CTP_tpToName(loc.Name)
+            if ok then showToast("Car TP → " .. loc.Name, "success")
+            else showToast(tostring(err), "warn") end
         end)
     end
-end)
 
-_G.EP_CarTP = { snapLoops = CTP_snapLoops, mapGui = CTP_mapGui, pumpkinFarm = PumpkinFarm }
+    -- Stop Car (panic button)
+    Btn(ctpContainer, 5, "Stop Car (kill momentum)", function()
+        local car = getCarAndSeat()
+        if car then
+            for _, p in ipairs(car:GetDescendants()) do
+                if p:IsA("BasePart") then
+                    p.AssemblyLinearVelocity = Vector3.zero
+                    p.AssemblyAngularVelocity = Vector3.zero
+                end
+            end
+            showToast("Car momentum stopped", "success")
+        else
+            showToast("Not in a car", "warn")
+        end
+    end, Color3.fromRGB(60, 24, 24))
+
+    -- Sliding toggle button
+    local ctpIsOpen = false
+    local ctpToggleBtn
+    ctpToggleBtn = Btn(P, 21, "Open Car Teleport", function()
+        ctpIsOpen = not ctpIsOpen
+        ctpToggleBtn.Text = ctpIsOpen and "Close Car Teleport" or "Open Car Teleport"
+        local targetSize = ctpIsOpen and UDim2.new(1, -6, 0, ctpContentHeight) or UDim2.new(1, -6, 0, 0)
+        TweenService:Create(ctpContainer, TweenInfo.new(0.35, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {Size = targetSize}):Play()
+    end, Color3.fromRGB(40, 90, 180))
+
+    -- Live status loop
+    task.spawn(function()
+        while not _G.EP_Unloaded do
+            task.wait(0.5)
+            pcall(function()
+                if not ctpStatus.Parent then return end
+                local car = getCarAndSeat()
+                if car then
+                    ctpStatus.Text = " In car (" .. (car:GetAttribute("Owner") or "?") .. ") — ready"
+                    ctpStatus.TextColor3 = Color3.fromRGB(130, 220, 150)
+                else
+                    ctpStatus.Text = if State.CarTPAutoSpawn
+                        then " Not in a car — auto-spawn on TP"
+                        else " Not in a car — auto-spawn OFF"
+                    ctpStatus.TextColor3 = Color3.fromRGB(255, 200, 100)
+                end
+            end)
+        end
+    end)
+
+    _G.EP_CarTP = { snapLoops = CTP_snapLoops, mapGui = CTP_mapGui, pumpkinFarm = PumpkinFarm }
+end -- <--- END OF THE DO BLOCK
 
 --============== MOVE TAB ==============
 currentWidgetTab = "Move"
