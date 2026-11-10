@@ -1,3 +1,4 @@
+
 --[[=================================================================
     EL PASO  •  v4.1  •  by selever_el
     LANDSCAPE EDITION
@@ -63,7 +64,7 @@ task.spawn(function()
 
     -- 3. Listen for it being added later (in case the game re-adds it)
     PlayerGui.DescendantAdded:Connect(destroyStarterPackUI)
-    				
+    
     -- 4. Just in case it's a BillboardGui attached to a part in the world
     for _, v in ipairs(workspace:GetDescendants()) do
         destroyStarterPackUI(v)
@@ -137,15 +138,6 @@ local ClickTPConn, NoCDJumpConn, MainKeybindConn
 local EP_TrickActive = false
 local EP_TrickUntil  = 0
 
---============== MAP DELETER STATE ==============
-local HiddenFolder = Instance.new("Folder")
-HiddenFolder.Name = "EP_HiddenMap_" .. tostring(math.random(1000, 9999))
-HiddenFolder.Parent = RS
-
-local DeletedParts = {}
-local MapDeleted = false
-local SafePlatform = nil
-local MapBusy = false
 --============== ROLE DETECTION ==============
 local ROLE_COLORS = {
     Criminal = Color3.fromRGB(255, 70, 70), Civilian = Color3.fromRGB(70, 255, 100),
@@ -934,99 +926,6 @@ RunService.Heartbeat:Connect(function(dt)
     end
 end)
 _G.EP_TunedCar = TunedCar
-
---============== MAP DELETE / RESTORE ==============
-local function getMyCar()
-    local char = LP.Character
-    local hum = char and char:FindFirstChildOfClass("Humanoid")
-    local seat = hum and hum.SeatPart
-    if seat and seat:IsA("VehicleSeat") then
-        local car = seat:FindFirstAncestorOfClass("Model")
-        while car do
-            if car:HasTag("Car") then return car end
-            car = car:FindFirstAncestorOfClass("Model")
-        end
-    end
-    return nil
-end
-
-local function DeleteMap()
-    if MapDeleted or MapBusy then return end
-    MapBusy = true
-
-    local char = LP.Character
-    local myCar = getMyCar()
-    local hrp = char and char:FindFirstChild("HumanoidRootPart")
-
-    -- Invisible floor so you/car doesn't fall through
-    if hrp then
-        SafePlatform = Instance.new("Part")
-        SafePlatform.Size = Vector3.new(2000, 5, 2000)
-        SafePlatform.Position = hrp.Position - Vector3.new(0, 3.5, 0)
-        SafePlatform.Anchored = true
-        SafePlatform.CanCollide = true
-        SafePlatform.CanQuery = false
-        SafePlatform.CanTouch = false
-        SafePlatform.Transparency = 1
-        SafePlatform.Parent = workspace
-    end
-
-    table.clear(DeletedParts)
-
-    for _, obj in ipairs(workspace:GetChildren()) do
-        if obj.Name ~= "Camera" and obj.Name ~= "Terrain" and obj ~= SafePlatform then
-            local isHumanoid = obj:IsA("Model") and obj:FindFirstChildOfClass("Humanoid")
-            if not isHumanoid and obj ~= myCar then
-                table.insert(DeletedParts, obj)
-                obj.Parent = HiddenFolder
-            end
-        end
-    end
-
-    MapDeleted = true
-    MapBusy = false
-end
-
-local function RestoreMap()
-    if not MapDeleted or MapBusy then return end
-    MapBusy = true
-
-    local char = LP.Character
-    local myCar = getMyCar()
-    local hrp = char and char:FindFirstChild("HumanoidRootPart")
-
-    -- Lift car/player so they don't spawn inside a building
-    if myCar and myCar.PrimaryPart then
-        myCar:PivotTo(myCar:GetPivot() + Vector3.new(0, 50, 0))
-        for _, part in ipairs(myCar:GetDescendants()) do
-            if part:IsA("BasePart") then
-                part.AssemblyLinearVelocity = Vector3.zero
-                part.AssemblyAngularVelocity = Vector3.zero
-            end
-        end
-    elseif hrp then
-        hrp.CFrame = hrp.CFrame + Vector3.new(0, 15, 0)
-    end
-
-    if SafePlatform then
-        SafePlatform:Destroy()
-        SafePlatform = nil
-    end
-
-    -- Restore in chunks so the game doesn't freeze
-    task.spawn(function()
-        for i = 1, #DeletedParts do
-            local obj = DeletedParts[i]
-            if obj then
-                pcall(function() obj.Parent = workspace end)
-            end
-            if i % 500 == 0 then task.wait() end
-        end
-        table.clear(DeletedParts)
-        MapDeleted = false
-        MapBusy = false
-    end)
-end
 
 --=================================================================
 --  THEMES (5 REFINED · Lost Front style)
@@ -3052,61 +2951,68 @@ local function PF_loop()
         local hum  = char and char:FindFirstChildOfClass("Humanoid")
         local hrp  = char and char:FindFirstChild("HumanoidRootPart")
 
-        if not hum or not hrp or hum.Health <= 0 then task.wait(0.5); continue end
-
-        -- 1. Ensure we are inside a car
-        local car, seat = getCarAndSeat()
-        if not car then
-            if State.CarTPAutoSpawn then
-                pcall(CTP_autoSpawnCar)
-                task.wait(2)
-                car, seat = getCarAndSeat()
+        if not hum or not hrp or hum.Health <= 0 then 
+            task.wait(0.5) 
+        else
+            -- 1. Ensure we are inside a car
+            local car, seat = getCarAndSeat()
+            if not car then
+                if State.CarTPAutoSpawn then
+                    pcall(CTP_autoSpawnCar)
+                    task.wait(2)
+                    car, seat = getCarAndSeat()
+                end
             end
-            if not car then task.wait(1); continue end
-        end
 
-        -- 2. Find nearest coin
-        local candy, dist = PF_findNearestCandy()
-        if not candy then task.wait(2); continue end
+            if not car then 
+                task.wait(1) 
+            else
+                -- 2. Find nearest coin
+                local candy, dist = PF_findNearestCandy()
+                if not candy then 
+                    task.wait(2) 
+                else
+                    -- 3. TP car next to coin
+                    local tpcf = CFrame.new(candy.Position + Vector3.new(0, 6, 0))
+                    pcall(CTP_doTeleport, tpcf, "PumpkinCoin")
+                    task.wait(0.5)
 
-        -- 3. TP car next to coin
-        local tpcf = CFrame.new(candy.Position + Vector3.new(0, 6, 0))
-        pcall(CTP_doTeleport, tpcf, "PumpkinCoin")
-        task.wait(0.5)
+                    -- 4. Exit car
+                    if hum.SeatPart then pcall(function() hum.Sit = false end); task.wait(0.25) end
 
-        -- 4. Exit car
-        if hum.SeatPart then pcall(function() hum.Sit = false end); task.wait(0.25) end
+                    -- 5. TP character onto the coin
+                    if candy and candy.Parent then
+                        safeTeleport(CFrame.new(candy.Position + Vector3.new(0, 2, 0)))
+                    end
 
-        -- 5. TP character onto the coin
-        if candy and candy.Parent then
-            safeTeleport(CFrame.new(candy.Position + Vector3.new(0, 2, 0)))
-        end
+                    -- 6. Try ProximityPrompt if present
+                    task.wait(0.1)
+                    if candy and candy.Parent then
+                        local prompt = candy:FindFirstChildWhichIsA("ProximityPrompt", true) or (candy.Parent and candy.Parent:FindFirstChildWhichIsA("ProximityPrompt", true))
+                        if prompt then pcall(fireproximityprompt, prompt) end
+                    end
 
-        -- 6. Try ProximityPrompt if present
-        task.wait(0.1)
-        if candy and candy.Parent then
-            local prompt = candy:FindFirstChildWhichIsA("ProximityPrompt", true) or (candy.Parent and candy.Parent:FindFirstChildWhichIsA("ProximityPrompt", true))
-            if prompt then pcall(fireproximityprompt, prompt) end
-        end
+                    -- 7. Wait for pickup
+                    task.wait(0.6)
+                    if not candy or not candy.Parent then
+                        PumpkinFarm.CoinCount = PumpkinFarm.CoinCount + 1
+                        showToast("Pumpkin coin collected (" .. PumpkinFarm.CoinCount .. ")", "success")
+                    end
 
-        -- 7. Wait for pickup
-        task.wait(0.6)
-        if not candy or not candy.Parent then
-            PumpkinFarm.CoinCount = PumpkinFarm.CoinCount + 1
-            showToast("Pumpkin coin collected (" .. PumpkinFarm.CoinCount .. ")", "success")
-        end
-
-        -- 8. Return to car & re-seat
-        local car2, seat2 = getCarAndSeat()
-        if seat2 then
-            safeTeleport(seat2.CFrame * CFrame.new(0, 2, 0))
-            task.wait(0.15)
-            if hum and hum.Parent then
-                pcall(function() seat2:Sit(hum) end)
-                task.wait(0.15)
-                if not hum.Sit then pcall(function() hum.Sit = true end) end
+                    -- 8. Return to car & re-seat
+                    local car2, seat2 = getCarAndSeat()
+                    if seat2 then
+                        safeTeleport(seat2.CFrame * CFrame.new(0, 2, 0))
+                        task.wait(0.15)
+                        if hum and hum.Parent then
+                            pcall(function() seat2:Sit(hum) end)
+                            task.wait(0.15)
+                            if not hum.Sit then pcall(function() hum.Sit = true end) end
+                        end
+                        task.wait(0.35)
+                    end
+                end
             end
-            task.wait(0.35)
         end
     end
     PumpkinFarm.Active = false
@@ -3227,135 +3133,139 @@ end
 -- Sliding UI section
 Section(P, "Car Teleport (Exploit)", 20)
 
-task.spawn(function() -- <--- THIS FIXES THE 200 LIMIT ERROR
-    -- Height: status(34) + auto-spawn(34) + farm-loop(34) + grid(354) + cancel(34) + 4 gaps*6 + buffer
-    local ctpContentHeight = 34 + 34 + 34 + 354 + 34 + (4 * 6) + 20
-    local ctpContainer = Instance.new("Frame", P)
-    ctpContainer.Size = UDim2.new(1, -6, 0, 0)
-    ctpContainer.BackgroundTransparency = 1
-    ctpContainer.ClipsDescendants = true
-    ctpContainer.LayoutOrder = 22
+task.spawn(function()
+-- Height: status(34) + auto-spawn(34) + farm-loop(34) + grid(354) + cancel(34) + 4 gaps*6 + buffer
+local ctpContentHeight = 34 + 34 + 34 + 354 + 34 + (4 * 6) + 20
 
-    local ctpLayout = Instance.new("UIListLayout", ctpContainer)
-    ctpLayout.Padding = UDim.new(0, 6)
-    ctpLayout.SortOrder = Enum.SortOrder.LayoutOrder
+local ctpContainer = Instance.new("Frame", P)
+ctpContainer.Size = UDim2.new(1, -6, 0, 0)
+ctpContainer.BackgroundTransparency = 1
+ctpContainer.ClipsDescendants = true
+ctpContainer.LayoutOrder = 22
 
-    -- Status card
-    local ctpStatusCard = Card(ctpContainer, 1, 34)
-    local ctpStatus = Instance.new("TextLabel", ctpStatusCard)
-    ctpStatus.Size = UDim2.new(1, -20, 1, 0); ctpStatus.Position = UDim2.fromOffset(12, 0)
-    ctpStatus.BackgroundTransparency = 1
-    ctpStatus.Font = Enum.Font.GothamMedium; ctpStatus.TextSize = 11
-    ctpStatus.TextXAlignment = Enum.TextXAlignment.Left
-    ctpStatus.Text = " Not in a car"
-    ctpStatus.TextColor3 = Theme.Dim
-    onTheme(function() ctpStatus.TextColor3 = Theme.Dim end)
+local ctpLayout = Instance.new("UIListLayout", ctpContainer)
+ctpLayout.Padding = UDim.new(0, 6)
+ctpLayout.SortOrder = Enum.SortOrder.LayoutOrder
 
-    -- Auto-spawn toggle
-    Toggle(ctpContainer, 2, "Auto-spawn car on teleport", function() return State.CarTPAutoSpawn end, function(v)
-        State.CarTPAutoSpawn = v
-        showToast("Auto-spawn " .. (v and "ON" or "OFF"), v and "success" or "info")
+-- Status card
+local ctpStatusCard = Card(ctpContainer, 1, 34)
+local ctpStatus = Instance.new("TextLabel", ctpStatusCard)
+ctpStatus.Size = UDim2.new(1, -20, 1, 0); ctpStatus.Position = UDim2.fromOffset(12, 0)
+ctpStatus.BackgroundTransparency = 1
+ctpStatus.Font = Enum.Font.GothamMedium; ctpStatus.TextSize = 11
+ctpStatus.TextXAlignment = Enum.TextXAlignment.Left
+ctpStatus.Text = " Not in a car"
+ctpStatus.TextColor3 = Theme.Dim
+onTheme(function() ctpStatus.TextColor3 = Theme.Dim end)
+
+-- Auto-spawn toggle
+Toggle(ctpContainer, 2, "Auto-spawn car on teleport", function() return State.CarTPAutoSpawn end, function(v)
+    State.CarTPAutoSpawn = v
+    showToast("Auto-spawn " .. (v and "ON" or "OFF"), v and "success" or "info")
+end)
+
+-- Auto Pumpkin Loop
+Toggle(ctpContainer, 6, "Auto Pumpkin Farm Loop", function() return PumpkinFarm.Active end, function(v)
+    if v then PF_start() else PF_stop() end
+end)
+
+-- 2-column waypoint grid
+local ctpGridFrame = Instance.new("Frame", ctpContainer)
+ctpGridFrame.Size = UDim2.new(1, 0, 0, 354)
+ctpGridFrame.BackgroundTransparency = 1
+ctpGridFrame.LayoutOrder = 4
+
+local ctpGrid = Instance.new("UIGridLayout", ctpGridFrame)
+ctpGrid.CellSize = UDim2.new(0.5, -3, 0, 34)
+ctpGrid.CellPadding = UDim2.new(0, 6, 0, 6)
+ctpGrid.SortOrder = Enum.SortOrder.LayoutOrder
+
+local function ctpGridBtn(parent, order, label, cb)
+    local b = Instance.new("TextButton", parent)
+    b.BorderSizePixel = 0
+    b.Text = label
+    b.Font = Enum.Font.GothamMedium
+    b.TextSize = 10
+    b.AutoButtonColor = false
+    b.LayoutOrder = order
+    b.TextTruncate = Enum.TextTruncate.AtEnd
+    Instance.new("UICorner", b).CornerRadius = UDim.new(0, 7)
+    local s = Instance.new("UIStroke", b); s.Thickness = 1; s.Transparency = 0.35
+    b.BackgroundColor3 = Theme.Card; b.TextColor3 = Theme.Text; s.Color = Theme.Border
+    onTheme(function() b.BackgroundColor3 = Theme.Card; b.TextColor3 = Theme.Text; s.Color = Theme.Border end)
+    b.MouseEnter:Connect(function() TweenService:Create(b, TweenInfo.new(0.12), {BackgroundColor3 = Theme.CardHover}):Play() end)
+    b.MouseLeave:Connect(function() TweenService:Create(b, TweenInfo.new(0.12), {BackgroundColor3 = Theme.Card}):Play() end)
+    b.MouseButton1Click:Connect(function()
+        local ok, err = pcall(cb)
+        if not ok then warn("[EP] " .. tostring(err)); showToast("Error: "..tostring(err), "error") end
     end)
+    table.insert(searchIndex, {tab=currentWidgetTab, label=label, card=b})
+    return b
+end
 
-    -- Auto Pumpkin Loop
-    Toggle(ctpContainer, 6, "Auto Pumpkin Farm Loop", function() return PumpkinFarm.Active end, function(v)
-        if v then PF_start() else PF_stop() end
+for i, loc in ipairs(CTP_LOCATIONS) do
+    ctpGridBtn(ctpGridFrame, i, " " .. loc.Name, function()
+        local ok, err = CTP_tpToName(loc.Name)
+        if ok then showToast("Car TP → " .. loc.Name, "success")
+        else showToast(tostring(err), "warn") end
     end)
+end
 
-    -- 2-column waypoint grid
-    local ctpGridFrame = Instance.new("Frame", ctpContainer)
-    ctpGridFrame.Size = UDim2.new(1, 0, 0, 354)
-    ctpGridFrame.BackgroundTransparency = 1
-    ctpGridFrame.LayoutOrder = 4
-
-    local ctpGrid = Instance.new("UIGridLayout", ctpGridFrame)
-    ctpGrid.CellSize = UDim2.new(0.5, -3, 0, 34)
-    ctpGrid.CellPadding = UDim2.new(0, 6, 0, 6)
-    ctpGrid.SortOrder = Enum.SortOrder.LayoutOrder
-
-    local function ctpGridBtn(parent, order, label, cb)
-        local b = Instance.new("TextButton", parent)
-        b.BorderSizePixel = 0
-        b.Text = label
-        b.Font = Enum.Font.GothamMedium
-        b.TextSize = 10
-        b.AutoButtonColor = false
-        b.LayoutOrder = order
-        b.TextTruncate = Enum.TextTruncate.AtEnd
-        Instance.new("UICorner", b).CornerRadius = UDim.new(0, 7)
-        local s = Instance.new("UIStroke", b); s.Thickness = 1; s.Transparency = 0.35
-        b.BackgroundColor3 = Theme.Card; b.TextColor3 = Theme.Text; s.Color = Theme.Border
-        onTheme(function() b.BackgroundColor3 = Theme.Card; b.TextColor3 = Theme.Text; s.Color = Theme.Border end)
-        b.MouseEnter:Connect(function() TweenService:Create(b, TweenInfo.new(0.12), {BackgroundColor3 = Theme.CardHover}):Play() end)
-        b.MouseLeave:Connect(function() TweenService:Create(b, TweenInfo.new(0.12), {BackgroundColor3 = Theme.Card}):Play() end)
-        b.MouseButton1Click:Connect(function()
-            local ok, err = pcall(cb)
-            if not ok then warn("[EP] " .. tostring(err)); showToast("Error: "..tostring(err), "error") end
-        end)
-        table.insert(searchIndex, {tab=currentWidgetTab, label=label, card=b})
-        return b
-    end
-
-    for i, loc in ipairs(CTP_LOCATIONS) do
-        ctpGridBtn(ctpGridFrame, i, " " .. loc.Name, function()
-            local ok, err = CTP_tpToName(loc.Name)
-            if ok then showToast("Car TP → " .. loc.Name, "success")
-            else showToast(tostring(err), "warn") end
-        end)
-    end
-
-    -- Stop Car (panic button)
-    Btn(ctpContainer, 5, "Stop Car (kill momentum)", function()
-        local car = getCarAndSeat()
-        if car then
-            for _, p in ipairs(car:GetDescendants()) do
-                if p:IsA("BasePart") then
-                    p.AssemblyLinearVelocity = Vector3.zero
-                    p.AssemblyAngularVelocity = Vector3.zero
-                end
+-- Stop Car (panic button)
+Btn(ctpContainer, 5, "Stop Car (kill momentum)", function()
+    local car = getCarAndSeat()
+    if car then
+        for _, p in ipairs(car:GetDescendants()) do
+            if p:IsA("BasePart") then
+                p.AssemblyLinearVelocity = Vector3.zero
+                p.AssemblyAngularVelocity = Vector3.zero
             end
-            showToast("Car momentum stopped", "success")
-        else
-            showToast("Not in a car", "warn")
         end
-    end, Color3.fromRGB(60, 24, 24))
+        showToast("Car momentum stopped", "success")
+    else
+        showToast("Not in a car", "warn")
+    end
+end, Color3.fromRGB(60, 24, 24))
 
-    -- Sliding toggle button
-    local ctpIsOpen = false
-    local ctpToggleBtn
-    ctpToggleBtn = Btn(P, 21, "Open Car Teleport", function()
-        ctpIsOpen = not ctpIsOpen
-        ctpToggleBtn.Text = ctpIsOpen and "Close Car Teleport" or "Open Car Teleport"
-        local targetSize = ctpIsOpen and UDim2.new(1, -6, 0, ctpContentHeight) or UDim2.new(1, -6, 0, 0)
-        TweenService:Create(ctpContainer, TweenInfo.new(0.35, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {Size = targetSize}):Play()
-    end, Color3.fromRGB(40, 90, 180))
+-- Sliding toggle button
+local ctpIsOpen = false
+local ctpToggleBtn
+ctpToggleBtn = Btn(P, 21, "Open Car Teleport", function()
+    ctpIsOpen = not ctpIsOpen
+    ctpToggleBtn.Text = ctpIsOpen and "Close Car Teleport" or "Open Car Teleport"
+    local targetSize = ctpIsOpen and UDim2.new(1, -6, 0, ctpContentHeight) or UDim2.new(1, -6, 0, 0)
+    TweenService:Create(ctpContainer, TweenInfo.new(0.35, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {Size = targetSize}):Play()
+end, Color3.fromRGB(40, 90, 180))
 
-    -- Live status loop
-    task.spawn(function()
-        while not _G.EP_Unloaded do
-            task.wait(0.5)
-            pcall(function()
-                if not ctpStatus.Parent then return end
-                local car = getCarAndSeat()
-                if car then
-                    ctpStatus.Text = " In car (" .. (car:GetAttribute("Owner") or "?") .. ") — ready"
-                    ctpStatus.TextColor3 = Color3.fromRGB(130, 220, 150)
+-- Live status loop
+task.spawn(function()
+    while not _G.EP_Unloaded do
+        task.wait(0.5)
+        pcall(function()
+            if not ctpStatus.Parent then return end
+            local car = getCarAndSeat()
+            if car then
+                ctpStatus.Text = " In car (" .. (car:GetAttribute("Owner") or "?") .. ") — ready"
+                ctpStatus.TextColor3 = Color3.fromRGB(130, 220, 150)
+            else
+                if State.CarTPAutoSpawn then
+                    ctpStatus.Text = " Not in a car — auto-spawn on TP"
                 else
-                    ctpStatus.Text = if State.CarTPAutoSpawn
-                        then " Not in a car — auto-spawn on TP"
-                        else " Not in a car — auto-spawn OFF"
-                    ctpStatus.TextColor3 = Color3.fromRGB(255, 200, 100)
+                    ctpStatus.Text = " Not in a car — auto-spawn OFF"
                 end
-            end)
-        end
-    end)
+                ctpStatus.TextColor3 = Color3.fromRGB(255, 200, 100)
+            end
+        end)
+    end
+end)
 
-    _G.EP_CarTP = { snapLoops = CTP_snapLoops, mapGui = CTP_mapGui, pumpkinFarm = PumpkinFarm }
-end) -- <--- END OF THE FUNCTION
+_G.EP_CarTP = { snapLoops = CTP_snapLoops, mapGui = CTP_mapGui, pumpkinFarm = PumpkinFarm }
+end)
 
 --============== MOVE TAB ==============
 currentWidgetTab = "Move"
 P = Tabs.Move.page
+task.spawn(function()
 Section(P, "Locomotion", 1)
 Toggle(P, 2, "Speed Hack", function() return State.SpeedEnabled end, function(v) State.SpeedEnabled = v; showToast("Speed "..(v and "ON" or "OFF"), v and "success" or "info") end)
 Slider(P, 3, "Speed", 16, 500, State.SpeedValue, 1, function(v) State.SpeedValue = v end)
@@ -3367,10 +3277,12 @@ Toggle(P, 11, "Fly (Space=up, Shift=down)", function() return State.FlyEnabled e
 Slider(P, 12, "Fly Speed", 16, 500, State.FlySpeed, 1, function(v) State.FlySpeed = v end)
 Toggle(P, 13, "Noclip", function() return State.Noclip end, function(v) State.Noclip = v end)
 Toggle(P, 14, "Infinite Stamina", function() return State.InfiniteStamina end, function(v) State.InfiniteStamina = v end)
+end)
 
 --============== WEAPON TAB ==============
 currentWidgetTab = "Weapon"
 P = Tabs.Weapon.page
+task.spawn(function()
 Section(P, "Gun Modifications", 1)
 Toggle(P, 2, "Infinite Ammo (999)", function() return State.InfiniteAmmo end, function(v)
     State.InfiniteAmmo = v
@@ -3393,6 +3305,7 @@ wpl.BackgroundTransparency = 1; wpl.TextXAlignment = Enum.TextXAlignment.Left
 wpl.Font = Enum.Font.Gotham; wpl.TextSize = 11; wpl.TextWrapped = true
 wpl.Text = "Auto Fire has been removed to prevent\nserver kicks (Error 267).\n\nPatches apply to every GunSettings module."
 onTheme(function() wpl.TextColor3 = Theme.Dim end)
+end)
 
 --=================================================================
 --  KEYBINDS
@@ -3416,6 +3329,7 @@ local KeybindOrder = {"ToggleGUI","Aim","AutoEquip","ESP","Godmode","Minimize","
 currentWidgetTab = "Cheats"
 P = Tabs.Cheats.page
 task.spawn(function()
+
 -- 1. First, we define the logic so the buttons can use it
 local function GetCar()
     local char = LP.Character; if not char then return nil end
@@ -3665,18 +3579,19 @@ Btn(P, 61, "Delete All Gates & Barriers", function()
 end, Color3.fromRGB(60,24,24))
 
 Section(P, "Map", 70)
-Btn(P, 71, "💥 Delete Map (keep yourself)", function()
+Btn(P, 71, "Delete Map (keep yourself)", function()
     if MapDeleted then showToast("Map is already deleted", "warn"); return end
     DeleteMap()
     showToast("Map deleted — " .. #DeletedParts .. " objects hidden", "success")
 end, Color3.fromRGB(80, 30, 30))
 
-Btn(P, 72, "✨ Restore Map", function()
+Btn(P, 72, "Restore Map", function()
     if not MapDeleted then showToast("Nothing to restore", "warn"); return end
     RestoreMap()
     showToast("Restoring map in chunks...", "success")
 end, Color3.fromRGB(30, 80, 40))
 end)
+
 --=================================================================
 --  MISC TAB (now LAST tab)
 --=================================================================
@@ -3912,12 +3827,11 @@ Btn(P, 51, "Unload Script", function()
         Lighting.OutdoorAmbient = Color3.fromRGB(70, 70, 70)
     end
 
-     -- 4. Nuke GUI
-    if HiddenFolder and HiddenFolder.Parent then HiddenFolder:Destroy() end
+    -- 4. Nuke GUI
     Gui:Destroy()
     _G.EP_Loaded = false
 end, Color3.fromRGB(60,24,24))
-end) -- <--- ADD THIS
+end)
 
 --=================================================================
 --  SEARCH FUNCTION
