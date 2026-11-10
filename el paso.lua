@@ -63,7 +63,7 @@ task.spawn(function()
 
     -- 3. Listen for it being added later (in case the game re-adds it)
     PlayerGui.DescendantAdded:Connect(destroyStarterPackUI)
-    
+    				
     -- 4. Just in case it's a BillboardGui attached to a part in the world
     for _, v in ipairs(workspace:GetDescendants()) do
         destroyStarterPackUI(v)
@@ -3416,7 +3416,7 @@ local KeybindOrder = {"ToggleGUI","Aim","AutoEquip","ESP","Godmode","Minimize","
 --=================================================================
 currentWidgetTab = "Cheats"
 P = Tabs.Cheats.page
-
+do
 -- 1. First, we define the logic so the buttons can use it
 local function GetCar()
     local char = LP.Character; if not char then return nil end
@@ -3677,12 +3677,14 @@ Btn(P, 72, "✨ Restore Map", function()
     RestoreMap()
     showToast("Restoring map in chunks...", "success")
 end, Color3.fromRGB(30, 80, 40))
+end
 
 --=================================================================
 --  MISC TAB (now LAST tab)
 --=================================================================
 currentWidgetTab = "Misc"
 P = Tabs.Misc.page
+do
 
 Section(P, "Appearance", 1)
 local themeCard = Card(P, 2, 70)
@@ -3917,6 +3919,7 @@ Btn(P, 51, "Unload Script", function()
     Gui:Destroy()
     _G.EP_Loaded = false
 end, Color3.fromRGB(60,24,24))
+end -- ADD THIS
 
 --=================================================================
 --  SEARCH FUNCTION
